@@ -1,0 +1,46 @@
+[
+  {
+    "name": "8k",
+    "file": "/home/thanh-nguyenxuan/workspace/data/longbenchv2-8k.jsonl",
+    "target_isl": 8192,
+    "recommended_osl": 1024,
+    "requested_prompts": 256,
+    "produced_prompts": 256,
+    "achieved_tokens_min": 8191,
+    "achieved_tokens_max": 8194,
+    "candidate_pool": 502
+  },
+  {
+    "name": "10k",
+    "file": "/home/thanh-nguyenxuan/workspace/data/longbenchv2-10k.jsonl",
+    "target_isl": 10000,
+    "recommended_osl": 500,
+    "requested_prompts": 256,
+    "produced_prompts": 256,
+    "achieved_tokens_min": 9998,
+    "achieved_tokens_max": 10000,
+    "candidate_pool": 501
+  },
+  {
+    "name": "100k",
+    "file": "/home/thanh-nguyenxuan/workspace/data/longbenchv2-100k.jsonl",
+    "target_isl": 100000,
+    "recommended_osl": 500,
+    "requested_prompts": 100,
+    "produced_prompts": 100,
+    "achieved_tokens_min": 99999,
+    "achieved_tokens_max": 100000,
+    "candidate_pool": 245
+  },
+  {
+    "name": "1M",
+    "file": "/home/thanh-nguyenxuan/workspace/data/longbenchv2-1M.jsonl",
+    "target_isl": 1000000,
+    "recommended_osl": 500,
+    "requested_prompts": 32,
+    "produced_prompts": 22,
+    "achieved_tokens_min": 999999,
+    "achieved_tokens_max": 1000000,
+    "candidate_pool": 25
+  }
+]
