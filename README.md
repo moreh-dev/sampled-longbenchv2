@@ -65,7 +65,7 @@ Three flags are required to get the intended behavior:
 
 ```bash
 DATA=/remote/vast0/share-mv/longbenchv2-custom
-TOK=/remote/vast0/share-mv/zai-org/GLM-5-FP8/tokenizer.json
+TOK=/remote/vast0/share-mv/zai-org/GLM-5-FP8
 
 vllm bench serve \
     --backend vllm \
@@ -88,7 +88,7 @@ setups, `--profile`).
 
 ```bash
 DATA=/remote/vast0/share-mv/longbenchv2-custom
-TOK=/remote/vast0/share-mv/zai-org/GLM-5-FP8/tokenizer.json
+TOK=/remote/vast0/share-mv/zai-org/GLM-5-FP8
 
 vllm-moreh bench serve \
     --backend vllm \
