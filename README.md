@@ -120,6 +120,15 @@ vllm-moreh bench serve \
   (ISL + OSL + margin), and keep `--num-prompts ≤ 22`.
 - **Why `custom`, not `sharegpt`:** `ShareGPTDataset` hard-filters prompts to ≤1024
   tokens, silently dropping every long-context sample. `CustomDataset` has no length filter.
+- **`custom` needs pandas, which the official images do not ship.** `CustomDataset`
+  loads the JSONL with `pandas.read_json`, so inside `vllm/vllm-openai:*` (verified on
+  `glm53-flash`, `kimi-k3`, `v0.29.0`) and the Moreh CUDA image the run dies with
+  `ImportError: Please install vllm[bench] for bench support`. `--dataset-name random`
+  is unaffected, which is why this only shows up once you switch to these files. Install
+  `vllm[bench]`, or add pandas to the client environment — e.g. build a thin image on top
+  of the engine image, or `pip install --target <dir> --no-deps pandas python-dateutil
+  pytz tzdata` and mount it with `PYTHONPATH` (`--no-deps` matters: a plain install pulls
+  a newer numpy that shadows the image's and breaks vLLM).
 
 ---
 
