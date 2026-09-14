@@ -17,7 +17,8 @@ def find(name):
 
 tok = PreTrainedTokenizerFast(tokenizer_file="/remote/vast0/share-mv/zai-org/GLM-5-FP8/tokenizer.json")
 
-for name, isl in [("8k", 8192), ("10k", 10000), ("100k", 100000), ("1M", 1000000)]:
+for name, isl in [("4k", 4096), ("8k", 8192), ("10k", 10000), ("64k", 65536),
+                  ("100k", 100000), ("1M", 1000000)]:
     ds = CustomDataset(dataset_path=find(name), disable_shuffle=True)
     reqs = ds.sample(tokenizer=tok, num_requests=8, output_len=500, skip_chat_template=True)
     plen = [r.prompt_len for r in reqs]

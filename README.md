@@ -11,8 +11,10 @@ Real long-context prompts sampled from **LongBench-v2**
 
 | File | Target ISL (tokens) | Prompts | Recommended OSL |
 |------|--------------------:|--------:|----------------:|
+| `longbenchv2-4k.jsonl`   |     4,096 | 256 | 1024 |
 | `longbenchv2-8k.jsonl`   |     8,192 | 256 | 1024 |
 | `longbenchv2-10k.jsonl`  |    10,000 | 256 |  500 |
+| `longbenchv2-64k.jsonl`  |    65,536 | 256 | 2048 |
 | `longbenchv2-100k.jsonl` |   100,000 | 100 |  500 |
 | `longbenchv2-1M.jsonl`   | 1,000,000 |  22 |  500 |
 
@@ -35,7 +37,7 @@ JSONL, one request per line. Only `prompt` is read by the benchmark; the rest is
 
 - **Tokenizer**: GLM-5 (`/remote/vast0/share-mv/zai-org/GLM-5-FP8/tokenizer.json`).
 - **ISL is controlled by the dataset.** Each `prompt` tokenizes to its target ISL
-  (exact for 8k/10k, off-by-≤1 for 100k/1M at unavoidable BPE boundaries) under the
+  (exact for 8k/10k, off-by-≤1 for 4k/64k/100k/1M at unavoidable BPE boundaries) under the
   GLM-5 tokenizer **with no special tokens** — i.e. exactly what the benchmark
   measures when `--skip-chat-template` is set.
 - **OSL is NOT in the dataset.** Set it at serve time with `--custom-output-len`.
@@ -53,8 +55,10 @@ things: `--dataset-path` (which ISL file) and `--custom-output-len` (the OSL).
 
 | Dataset | `--custom-output-len` | `--num-prompts` |
 |---------|----------------------:|----------------:|
+| `longbenchv2-4k.jsonl`   | 1024 | ≤ 256 |
 | `longbenchv2-8k.jsonl`   | 1024 | ≤ 256 |
 | `longbenchv2-10k.jsonl`  |  500 | ≤ 256 |
+| `longbenchv2-64k.jsonl`  | 2048 | ≤ 256 |
 | `longbenchv2-100k.jsonl` |  500 | ≤ 100 |
 | `longbenchv2-1M.jsonl`   |  500 | ≤ 22  |
 
@@ -116,6 +120,15 @@ vllm-moreh bench serve \
   (ISL + OSL + margin), and keep `--num-prompts ≤ 22`.
 - **Why `custom`, not `sharegpt`:** `ShareGPTDataset` hard-filters prompts to ≤1024
   tokens, silently dropping every long-context sample. `CustomDataset` has no length filter.
+- **`custom` needs pandas, which the official images do not ship.** `CustomDataset`
+  loads the JSONL with `pandas.read_json`, so inside `vllm/vllm-openai:*` (verified on
+  `glm53-flash`, `kimi-k3`, `v0.29.0`) and the Moreh CUDA image the run dies with
+  `ImportError: Please install vllm[bench] for bench support`. `--dataset-name random`
+  is unaffected, which is why this only shows up once you switch to these files. Install
+  `vllm[bench]`, or add pandas to the client environment — e.g. build a thin image on top
+  of the engine image, or `pip install --target <dir> --no-deps pandas python-dateutil
+  pytz tzdata` and mount it with `PYTHONPATH` (`--no-deps` matters: a plain install pulls
+  a newer numpy that shadows the image's and breaks vLLM).
 
 ---
 
@@ -134,3 +147,16 @@ python3 /remote/vast0/share-mv/sampled-longbenchv2/sample_longbench_v2.py \
     --tokenizer /path/to/model_or_tokenizer.json \
     --output-dir /remote/vast0/share-mv/sampled-longbenchv2
 ```
+
+Rebuild only some sizes with `--only` — the files and manifest entries of every
+config left out are kept untouched. Useful because rebuilding `1M` is slow and
+rarely what you want:
+
+```bash
+python3 sample_longbench_v2.py --only 4k,64k \
+    --dataset /path/to/LongBench-v2/data.json \
+    --tokenizer /path/to/model_or_tokenizer.json \
+    --output-dir .
+```
+
+Available config names: `4k`, `8k`, `10k`, `64k`, `100k`, `1M`.

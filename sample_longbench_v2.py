@@ -44,8 +44,10 @@ TEMPLATE_SUFFIX = (
 
 # name, target ISL (tokens), recommended OSL (serve-time only), num prompts
 DEFAULT_CONFIGS = [
+    ("4k", 4096, 1024, 256),
     ("8k", 8192, 1024, 256),
     ("10k", 10000, 500, 256),
+    ("64k", 65536, 2048, 256),
     ("100k", 100000, 500, 100),
     ("1M", 1000000, 500, 32),
 ]
@@ -121,6 +123,41 @@ def make_prompt(tok, prefix_len: int, entry: dict, isl: int, tol: int = 0, max_i
     return best
 
 
+def select_configs(only: str | None) -> list[tuple]:
+    """Return the configs to build. Never mutates DEFAULT_CONFIGS."""
+    if not only:
+        return list(DEFAULT_CONFIGS)
+    wanted = [name.strip() for name in only.split(",") if name.strip()]
+    known = {cfg[0] for cfg in DEFAULT_CONFIGS}
+    unknown = [name for name in wanted if name not in known]
+    if unknown:
+        raise SystemExit(
+            f"Unknown config name(s): {', '.join(unknown)}. "
+            f"Known: {', '.join(cfg[0] for cfg in DEFAULT_CONFIGS)}"
+        )
+    return [cfg for cfg in DEFAULT_CONFIGS if cfg[0] in wanted]
+
+
+def merge_manifest(manifest_path: Path, produced: list[dict]) -> list[dict]:
+    """Return the manifest with ``produced`` replacing same-named entries and every
+    other existing entry preserved, ordered by target ISL. Returns a new list.
+
+    Without this, building a subset with --only would drop the entries of the
+    configs that were not rebuilt.
+    """
+    existing = []
+    if manifest_path.exists():
+        with open(manifest_path, encoding="utf-8") as f:
+            existing = json.load(f)
+    rebuilt = {entry["name"] for entry in produced}
+    kept = [
+        {**entry, "file": os.path.basename(entry.get("file", ""))}
+        for entry in existing
+        if entry["name"] not in rebuilt
+    ]
+    return sorted(kept + produced, key=lambda entry: entry["target_isl"])
+
+
 def scan_word_counts(dataset_path: str) -> list[int]:
     """Pass 1: stream the file and record per-entry word counts (cheap)."""
     counts: list[int] = []
@@ -140,13 +177,17 @@ def main() -> int:
                     help="Path to a tokenizer.json file or a HF model dir.")
     ap.add_argument("--prefix", default="longbenchv2",
                     help="Output filename prefix: <prefix>-<name>.jsonl")
+    ap.add_argument("--only", default=None,
+                    help="Comma-separated config names to build, e.g. --only 4k,64k. "
+                         "Default: build every config. Configs left out keep their "
+                         "existing .jsonl file and their manifest entry untouched.")
     ap.add_argument("--tolerance", type=int, default=-1,
                     help="Accept a prompt if |achieved_tokens - ISL| <= this. "
                          "-1 (default) = auto per-config: max(4, round(ISL*0.0005)) (~0.05%%). "
                          "Use 0 to keep only token-exact prompts.")
     args = ap.parse_args()
 
-    configs = DEFAULT_CONFIGS
+    configs = select_configs(args.only)
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -220,7 +261,7 @@ def main() -> int:
     print("\n=== Summary ===", flush=True)
     for name, isl, osl, npr in configs:
         a = achieved[name]
-        path = str(out_dir / f"{args.prefix}-{name}.jsonl")
+        path = f"{args.prefix}-{name}.jsonl"
         info = {
             "name": name,
             "file": path,
@@ -239,8 +280,11 @@ def main() -> int:
               f"| OSL(serve)={osl}{warn}", flush=True)
 
     man_path = out_dir / f"{args.prefix}-manifest.json"
+    # Merge BEFORE opening for writing: opening in "w" truncates the file, so
+    # reading the previous entries afterwards would find it empty.
+    merged = merge_manifest(man_path, manifest)
     with open(man_path, "w", encoding="utf-8") as f:
-        json.dump(manifest, f, indent=2)
+        json.dump(merged, f, indent=2)
     print(f"\nManifest: {man_path}", flush=True)
     print("\nServe example (set OSL here, not in the dataset):", flush=True)
     print(
